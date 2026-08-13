@@ -1,0 +1,172 @@
+x-airflow-common:
+  &airflow-common
+  image: apache/airflow:3.3.0-python3.13
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow_postgres/${AIRFLOW_DB_USER}
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    # Airflow 3.x: AIRFLOW__API__AUTH_BACKENDS (FAB basic auth) ถูกแทนที่ด้วย auth manager ใหม่
+    # ใช้ SimpleAuthManager สำหรับ dev/local (สร้าง user เริ่มต้นให้อัตโนมัติ ไม่ต้องรัน `airflow users create`)
+    # ตรวจสอบค่านี้กับ Airflow 3.3 docs อีกครั้งก่อนใช้งานจริง เผื่อ path ของ class เปลี่ยน
+    AIRFLOW__CORE__AUTH_MANAGER: 'airflow.api_fastapi.auth.managers.simple.simple_auth_manager.SimpleAuthManager'
+    # ต้องอยู่ใน env กลางนี้ (ไม่ใช่แค่ของ airflow_init) เพราะ webserver ต้องอ่านค่านี้ตอนสร้าง user จริง
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: '${AIRFLOW_ADMIN_USER}:admin'
+    # ต้องเหมือนกันทุก container ไม่งั้น webserver/scheduler/dag-processor คุยกันผ่าน internal API ไม่ได้
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
+    # default เป็น localhost:8080 ซึ่งผิดเพราะ scheduler/task รันคนละ container กับ webserver
+    # ต้องชี้ผ่าน docker network ไปที่ service name ของ webserver แทน ไม่งั้น task ต่อ execution API ไม่ได้ (connection refused)
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow_webserver:8080/execution/'
+    _PIP_ADDITIONAL_REQUIREMENTS: 'apache-airflow-providers-amazon clickhouse-connect pandas pyarrow'
+    MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+    MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+    MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    CLICKHOUSE_HOST: clickhouse_db
+    CLICKHOUSE_PORT: 8123
+    CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+    CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./dataset:/opt/airflow/dataset
+    - airflow_logs:/opt/airflow/logs
+    # เก็บ password ของ SimpleAuthManager แบบ fix ไว้ ไม่งั้น container ใหม่ทุกครั้งจะ gen password สุ่มใหม่
+    - ./airflow_config/simple_auth_manager_passwords.json.generated:/opt/airflow/simple_auth_manager_passwords.json.generated
+  depends_on:
+    airflow_postgres:
+      condition: service_healthy
+
+services:
+  clickhouse_db:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-server
+    restart: always
+    ports:
+      - "8123:8123" # HTTP Port (สำหรับเปิดใช้งานผ่าน Web UI / DBeaver)
+      - "9000:9000" # Native TCP Port (สำหรับ clickhouse-client / หลังบ้านเชื่อมต่อ)
+    environment:
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}       # สร้างฐานข้อมูลเริ่มต้น
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}   # กำหนด Username
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}  # กำหนด Password
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=3 # เปิดสิทธิ์ให้จัดการ User ผ่าน SQL ได้
+    ulimits:
+      # ClickHouse จำเป็นต้องใช้โควตาเปิดไฟล์จำนวนมาก (ป้องกัน Error: Too many open files)
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      # 1. ผูก Named Volume สำหรับเก็บข้อมูลดิบ (Data)
+      - ch_data:/var/lib/clickhouse
+
+      # 2. ผูก Named Volume สำหรับเก็บประวัติการทำงาน (Logs) ช่วยให้ตรวจสอบง่ายและไม่ดึงพื้นที่ข้อมูลหลัก
+      - ch_logs:/var/log/clickhouse-server
+
+      # 3. (ทางเลือก - Bind Mount) หากต้องการปรับแต่ง config.xml หรือเปิดสิทธิ์ขั้นสูงเอง
+      # - ./clickhouse/config.xml:/etc/clickhouse-server/config.xml
+      # - ./clickhouse/users.xml:/etc/clickhouse-server/users.xml
+
+  miniO:
+    image: minio/minio
+    container_name: minio-food
+    ports:
+      - 9001:9000
+      - 9002:9001
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+
+  minio_bootstrap:
+    image: minio/mc
+    container_name: minio-bootstrap
+    depends_on:
+      - miniO
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set local http://miniO:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD) do echo 'waiting for minio...' && sleep 2; done;
+      /usr/bin/mc mb -p local/raw-food-daily;
+      /usr/bin/mc mb -p local/parquet-food-daily;
+      exit 0;
+      "
+
+  airflow_postgres:
+    image: postgres:18
+    container_name: airflow-postgres
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB_USER}
+    volumes:
+      - airflow_pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${AIRFLOW_DB_USER}"]
+      interval: 5s
+      retries: 5
+
+  airflow_init:
+    <<: *airflow-common
+    container_name: airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+    restart: on-failure
+
+  airflow_webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    command: api-server
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow_postgres:
+        condition: service_healthy
+      airflow_init:
+        condition: service_completed_successfully
+    restart: always
+
+  airflow_dag_processor:
+      <<: *airflow-common
+      container_name: airflow-dag-processor
+      command: dag-processor
+      depends_on:
+        airflow_postgres: { condition: service_healthy }
+        airflow_init:     { condition: service_completed_successfully }
+      restart: always
+
+  airflow_scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    command: scheduler
+    depends_on:
+      airflow_postgres:
+        condition: service_healthy
+      airflow_init:
+        condition: service_completed_successfully
+    restart: always
+
+  airflow_triggerer:
+    <<: *airflow-common
+    container_name: airflow-triggerer
+    command: triggerer
+    depends_on:
+      airflow_postgres:
+        condition: service_healthy
+      airflow_init:
+        condition: service_completed_successfully
+    restart: always
+
+# ประกาศชื่อ Volume ทั้งหมดที่ใช้จัดการระบบข้อมูลถาวร
+volumes:
+  ch_data:
+  ch_logs:
+  minio_data:
+  airflow_pg_data:
+  airflow_logs:
