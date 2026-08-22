@@ -2,32 +2,42 @@ version: 2
 
 models:
   - name: stg_food_daily__order
-    description: "Staged food delivery orders: renamed/cleaned columns from the raw food_daily source."
+    description: "Staged food delivery orders: renamed, cleaned, and type-cast columns from the raw food_daily source."
     columns:
       - name: customer_id
-        description: "Customer identifier."
+        description: "Customer identifier, trimmed."
         data_tests:
           - not_null
       - name: order_id
-        description: "Order identifier."
+        description: "Order identifier, trimmed."
         data_tests:
           - unique
           - not_null
       - name: order_date
         description: "Date the order was placed."
+        data_tests:
+          - not_null
       - name: order_time
         description: "Time the order was placed."
       - name: items
-        description: "Ordered items."
+        description: "Ordered items, lowercased and split from the raw colon-delimited list."
       - name: amount
-        description: "Order amount."
-      - name: payment_mode
+        description: "Order amount; raw values below 1 are floored to 1."
+        data_tests:
+          - not_null
+      - name: mode
         description: "Payment mode used for the order."
-      - name: restaurant
-        description: "Restaurant name."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["Wallet", "Card", "Online", "Cash"]
       - name: order_status
-        description: "Status of the order."
+        description: "Status of the order, normalized to a fixed set of values."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ["Delivered", "Not delivered", "On Hold", "Cancelled"]
       - name: ratings
-        description: "Customer rating, nullable."
+        description: "Customer rating, nullable, clamped to the 1-5 range."
       - name: feedback
-        description: "Customer feedback text."
+        description: "Customer feedback text, trimmed."
