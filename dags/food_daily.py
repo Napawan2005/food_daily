@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import uuid
 from datetime import datetime
 
 import pandas as pd
@@ -74,13 +75,16 @@ def food_daily():
         return True
     
     @task
-    def ensure_bucket_exists(bucket_name: str)-> None:
+    def ensure_bucket_exists( )-> None:
         existing = list_minio_buckets(client)
-        if bucket_name not in existing:
-            client.create_bucket(Bucket=bucket_name)
-            print("create BUCKET  !!")
-            
-        print("you have ",bucket_name," !!")
+        if RAW_BUCKET not in existing:
+            client.create_bucket(Bucket=RAW_BUCKET)
+            print("create BUCKET {RAW_BUCKET} !!")
+        if PARQUET_BUCKET not in existing:
+            client.create_bucket(Bucket=PARQUET_BUCKET)
+            print("create BUCKET {RAW_BUCKET}  !!")
+        
+        print("you have bucket !!")
 
     @task
     def extract_validate_csv() -> str:
@@ -102,16 +106,14 @@ def food_daily():
     @task
     def convert_csv_to_parquet (raw_key: str)->str:
         ds = datetime.today().strftime("%Y-%m-%d")
+        run_uid = uuid.uuid4().hex
 
-        local_raw = f"/tmp/food_daily_raw_{ds}.csv"
+        local_raw = f"/tmp/food_daily_raw_{ds}_{run_uid}.csv"
         client.download_file(RAW_BUCKET, raw_key, local_raw)
 
         df = pd.read_csv(local_raw, encoding="utf-8-sig")
-        df["time"] = df["time"].str.replace(".",":", regex=False)
-        df["restaurnt"] = df["restaurnt"].str.strip()
-        df["date"] = pd.to_datetime(df["date"], format="%d/%m/%Y").dt.date
-        
-        local_part = f"/tmp/food_daily_{ds}.parquet"
+
+        local_part = f"/tmp/food_daily_{ds}_{run_uid}.parquet"
         key = f"{ds}/food_daily.parquet"
         df.to_parquet(local_part , index=False)
         try:
@@ -119,8 +121,10 @@ def food_daily():
         except Exception as e:
             raise RuntimeError(f"Upload parquet to MinIO failed: {key}") from e
         finally:
-            os.remove(local_part)
-            os.remove(local_raw)
+            if os.path.exists(local_part):
+                os.remove(local_part)
+            if os.path.exists(local_raw):
+                os.remove(local_raw)
         return key
     
     @task
@@ -134,30 +138,37 @@ def food_daily():
         print("clickhouse connect ok!")
         return True
     
+    
+    
     @task
     def create_food_daily_table() -> None:
         try:
             ch_client.command("""
-                CREATE TABLE IF NOT EXISTS food_daily(
-                    Customer_id String,
-                    date Date,
+               DROP TABLE IF EXISTS food_daily;
+                              """)
+            
+            ch_client.command("""
+                              
+                CREATE TABLE food_daily(
+                    Customer_id String PRIMARY KEY,
+                    date String,
                     time String,
                     order_id String,
-                    items String,
-                    amount Float64,
+                    items Array(String),
+                    amount Int,
                     mode String,
                     restaurnt String,
                     Status String,
                     ratings Nullable(Float64),
                     feedback String,
-                    ingested_date Date DEFAULT today()
                     
-                ) ENGINE = MergeTree ORDER BY (date , Customer_id)
+                ) ENGINE = MergeTree ORDER BY (Customer_id)
+
             """)
         except Exception as e :
             raise RuntimeError(f"Failed to create table food_daily: {e}") from e
         print("create Table food_daily success !!")
-        
+    
     @task
     def load_data_to_food_daily(parquet_key: str) -> int:
         s3_url = f"http://miniO:9000/{PARQUET_BUCKET}/{parquet_key}"
@@ -165,7 +176,7 @@ def food_daily():
             ch_client.command(f"""
                 INSERT INTO food_daily
                 (Customer_id, date, time, order_id, items, amount, mode, restaurnt, Status, ratings, feedback)
-                SELECT Customer_id, date, time, order_id, items, amount, mode, restaurnt, Status, ratings, feedback
+                SELECT Customer_id, date , time, order_id, [items], amount, mode, restaurnt, Status, ratings, feedback
                 FROM s3('{s3_url}' , '{MINIO_ACCESS_KEY}' , '{MINIO_SECRET_KEY}' , 'Parquet')
              """)
         except Exception as e:
@@ -175,7 +186,7 @@ def food_daily():
     
     connect_miniO = check_minio_connection()
     csv_path = extract_validate_csv()
-    bucket_ready = ensure_bucket_exists(RAW_BUCKET)
+    bucket_ready = ensure_bucket_exists()
     key_miniO_load_csv = upload_raw_to_minio(csv_path)
     key_miniO_load_parquet = convert_csv_to_parquet(key_miniO_load_csv)
 
