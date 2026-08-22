@@ -1,0 +1,9 @@
+docs/
+__pycache__/
+*.pyc
+.env
+.dbt_venv/
+.venv/
+dbt/food_daily/target/
+dbt/food_daily/logs/
+dbt/food_daily/dbt_packages/
