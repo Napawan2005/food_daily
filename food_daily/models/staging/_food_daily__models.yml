@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: stg_food_daily__order
+    description: "Staged food delivery orders: renamed/cleaned columns from the raw food_daily source."
+    columns:
+      - name: customer_id
+        description: "Customer identifier."
+        data_tests:
+          - not_null
+      - name: order_id
+        description: "Order identifier."
+        data_tests:
+          - unique
+          - not_null
+      - name: order_date
+        description: "Date the order was placed."
+      - name: order_time
+        description: "Time the order was placed."
+      - name: items
+        description: "Ordered items."
+      - name: amount
+        description: "Order amount."
+      - name: payment_mode
+        description: "Payment mode used for the order."
+      - name: restaurant
+        description: "Restaurant name."
+      - name: order_status
+        description: "Status of the order."
+      - name: ratings
+        description: "Customer rating, nullable."
+      - name: feedback
+        description: "Customer feedback text."

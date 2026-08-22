@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: food_daily
+    description: "Raw data loaded from MinIO (parquet) into ClickHouse by the food_daily_pipeline DAG."
+    schema: "{{ target.schema }}"
+    tables:
+      - name: food_daily
+        description: "Raw food delivery orders, one row per order."
+        columns:
+          - name: Customer_id
+            description: "Customer identifier."
+          - name: date
+            description: "Order date."
+          - name: time
+            description: "Order time."
+          - name: order_id
+            description: "Order identifier."
+          - name: items
+            description: "Ordered items."
+          - name: amount
+            description: "Order amount."
+          - name: mode
+            description: "Payment mode."
+          - name: restaurnt
+            description: "Restaurant name (source column is misspelled)."
+          - name: Status
+            description: "Order status."
+          - name: ratings
+            description: "Customer rating, nullable."
+          - name: feedback
+            description: "Customer feedback text."
