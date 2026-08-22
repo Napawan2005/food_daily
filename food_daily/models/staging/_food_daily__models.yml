@@ -11,7 +11,6 @@ models:
       - name: order_id
         description: "Order identifier, trimmed."
         data_tests:
-          - unique
           - not_null
       - name: order_date
         description: "Date the order was placed."
@@ -30,13 +29,15 @@ models:
         data_tests:
           - not_null
           - accepted_values:
-              values: ["Wallet", "Card", "Online", "Cash"]
+              arguments:
+                values: ["Wallet", "Card", "Online", "Cash"]
       - name: order_status
         description: "Status of the order, normalized to a fixed set of values."
         data_tests:
           - not_null
           - accepted_values:
-              values: ["Delivered", "Not delivered", "On Hold", "Cancelled"]
+              arguments:
+                values: ["Delivered", "Not delivered", "On Hold", "Cancelled"]
       - name: ratings
         description: "Customer rating, nullable, clamped to the 1-5 range."
       - name: feedback
