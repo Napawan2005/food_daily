@@ -67,6 +67,10 @@ conversion_type as (
         ratings,
         feedback
     from normalize
+),
+
+check_date as (
+    select distinct * from normalize
 )
 
-SELECT * from conversion_type
+SELECT * from check_date
