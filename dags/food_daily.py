@@ -159,7 +159,7 @@ def food_daily():
                     mode String,
                     restaurnt String,
                     Status String,
-                    ratings Nullable(Float64),
+                    ratings Nullable(Int),
                     feedback String,
                     
                 ) ENGINE = MergeTree ORDER BY (Customer_id)
