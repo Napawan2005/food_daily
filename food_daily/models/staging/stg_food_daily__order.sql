@@ -59,7 +59,7 @@ conversion_type as (
         customer_id,
         toDate(order_date) as order_date,
         order_time::Nullable(String) as order_time,
-        order_id,
+        upper(substring(hex(cityHash64(concat(customer_id, order_date, order_time, toString(amount)))), 1, 5)) as order_id,
         items,
         mode::Enum8('Online' = 1 , 'Cash' = 2 , 'Wallet' = 3 ,'Card' = 4) as mode,
         amount,
