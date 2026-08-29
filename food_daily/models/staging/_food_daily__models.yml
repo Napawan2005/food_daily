@@ -9,9 +9,10 @@ models:
         data_tests:
           - not_null
       - name: order_id
-        description: "Order identifier, trimmed."
+        description: "Order identifier, generated as a hash of customer_id, order_date, order_time, and amount to guarantee uniqueness."
         data_tests:
           - not_null
+          - unique
       - name: order_date
         description: "Date the order was placed."
         data_tests:
