@@ -54,7 +54,7 @@ conversion_type as (
     SELECT
         customer_id,
         toDate(order_date) as order_date,
-        order_time::Nullable(String) as order_time,
+        order_time::Time as order_time,
         upper(substring(hex(cityHash64(concat(
             customer_id, order_date, order_time, toString(amount),
             arrayStringConcat(items, ':'), restaurant, toString(mode), order_status , ratings , feedback
