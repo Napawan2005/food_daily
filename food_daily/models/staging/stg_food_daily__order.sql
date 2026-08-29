@@ -11,7 +11,7 @@ rename as (
         items,
         amount,
         mode,
-        restaurnt,
+        restaurnt as restaurant,
         Status as order_status,
         ratings,
         feedback
@@ -31,13 +31,9 @@ normalize as (
                 splitByChar(':', items[1])
                 )
         ) AS items,
-
-        CASE
-            WHEN amount < 1 THEN  1
-            ELSE amount
-        END as amount,
+        amount,
         trim(concat(upper(substring(mode,1,1)), lower(substring(mode,2)))) as mode,
-        trim(restaurnt) as restaurnt,
+        trim(restaurant) as restaurant,
         multiIf(
             trimBoth(lower(order_status)) = 'delivered','Delivered',
             trimBoth(lower(order_status)) = 'cancelled' , 'Cancelled',
@@ -59,9 +55,13 @@ conversion_type as (
         customer_id,
         toDate(order_date) as order_date,
         order_time::Nullable(String) as order_time,
-        upper(substring(hex(cityHash64(concat(customer_id, order_date, order_time, toString(amount)))), 1, 5)) as order_id,
+        upper(substring(hex(cityHash64(concat(
+            customer_id, order_date, order_time, toString(amount),
+            arrayStringConcat(items, ':'), restaurant, toString(mode), order_status , ratings , feedback
+        ))), 1, 5)) as order_id,
         items,
         mode::Enum8('Online' = 1 , 'Cash' = 2 , 'Wallet' = 3 ,'Card' = 4) as mode,
+        restaurant,
         amount,
         order_status::Enum8('Delivered' = 1 , 'Cancelled' = 2 , 'Not delivered' = 3 , 'On Hold'=4) as order_status,
         ratings,
@@ -70,7 +70,7 @@ conversion_type as (
 ),
 
 check_date as (
-    select distinct * from normalize
+    select distinct * from conversion_type
 )
 
 SELECT * from check_date
