@@ -19,6 +19,8 @@ models:
           - not_null
       - name: order_time
         description: "Time the order was placed."
+        data_tests:
+          - not_null
       - name: items
         description: "Ordered items, lowercased and split from the raw colon-delimited list."
       - name: amount

@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: int_daily_sales_summary
+    description: "Daily sales summary aggregated by hour and order status."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - hour
+              - order_status
+    columns:
+      - name: total_amount
+        description: "Sum of order amounts for the hour/order_status group."
+        data_tests:
+          - not_null
+      - name: order_count
+        description: "Number of orders for the hour/order_status group."
+        data_tests:
+          - not_null
+      - name: order_status
+        description: "Status of the orders in this group, normalized to a fixed set of values."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["Delivered", "Not delivered", "On Hold", "Cancelled"]
