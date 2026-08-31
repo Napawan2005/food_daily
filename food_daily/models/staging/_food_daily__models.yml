@@ -24,7 +24,7 @@ models:
       - name: items
         description: "Ordered items, lowercased and split from the raw colon-delimited list."
       - name: amount
-        description: "Order amount; raw values below 1 are floored to 1."
+        description: "Order amount, passed through unchanged from the raw source."
         data_tests:
           - not_null
       - name: mode
