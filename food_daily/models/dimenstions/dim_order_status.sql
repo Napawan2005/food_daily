@@ -3,7 +3,7 @@ with source as (
 )
 
 SELECT DISTINCT 
-    row_number() over (order by category) as category_key,
-    category
+    cityHash64(toString(order_status)) as order_status_id,
+    order_status
 FROM
     source

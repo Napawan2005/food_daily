@@ -3,6 +3,6 @@ with source as (
 )
 
 SELECT DISTINCT
-    row_number() over (order by category) as category_id,
+    cityHash64(category) as category_id,
     category
 FROM source

@@ -3,6 +3,6 @@ with source as (
 )
 
 SELECT DISTINCT 
-    row_number() over (order by mode) as mode_id,
-    mode 
+    cityHash64(toString(mode)) as mode_id,
+    mode
 FROM source

@@ -3,6 +3,6 @@ with source as (
 )
 
 SELECT DISTINCT
-    row_number() OVER(ORDER BY restaurant) as restaurant_id,
+    cityHash64(restaurant) as restaurant_id,
     restaurant as restaurant_name
 FROM source
