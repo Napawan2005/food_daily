@@ -23,10 +23,18 @@ models:
           - not_null
       - name: items
         description: "Ordered items, lowercased and split from the raw colon-delimited list."
+      - name: restaurant
+        description: "Restaurant name, trimmed. Source column 'restaurnt' is misspelled."
+        data_tests:
+          - not_null
       - name: amount
         description: "Order amount, passed through unchanged from the raw source."
         data_tests:
           - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
       - name: mode
         description: "Payment mode used for the order."
         data_tests:
@@ -43,5 +51,11 @@ models:
                 values: ["Delivered", "Not delivered", "On Hold", "Cancelled"]
       - name: ratings
         description: "Customer rating, nullable, clamped to the 1-5 range."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+              config:
+                where: "ratings is not null"
       - name: feedback
         description: "Customer feedback text, trimmed."
