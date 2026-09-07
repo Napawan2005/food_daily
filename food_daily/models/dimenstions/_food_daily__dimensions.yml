@@ -1,0 +1,74 @@
+version: 2
+
+models:
+  - name: dim_restaurant
+    description: "Restaurant dimension, 1 row per restaurant"
+    columns:
+      - name: restaurant_id
+        description: "Surrogate key, cityHash64 of restaurant name"
+        data_tests:
+          - unique
+          - not_null
+      - name: restaurant_name
+        description: "Restaurant display name as it appears in the source"
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_order_status
+    description: "Order status dimension, 1 row per status"
+    columns:
+      - name: order_status_id
+        description: "Surrogate key, cityHash64 of order_status"
+        data_tests:
+          - unique
+          - not_null
+      - name: order_status
+        description: "Delivery outcome of the order"
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Delivered", "Not delivered", "On Hold", "Cancelled"]
+
+  - name: dim_payment_mode
+    description: "Payment mode dimension, 1 row per payment mode"
+    columns:
+      - name: mode_id
+        description: "Surrogate key, cityHash64 of mode"
+        data_tests:
+          - unique
+          - not_null
+      - name: mode
+        description: "Payment method the customer used for the order"
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Wallet", "Card", "Online", "Cash"]
+
+  - name: dim_category
+    description: "Feedback category dimension, 1 row per category"
+    columns:
+      - name: category_id
+        description: "Surrogate key, cityHash64 of category"
+        data_tests:
+          - unique
+          - not_null
+      - name: category
+        description: "Feedback category derived in int_feedback_category"
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  [
+                    "Merchant (Food Quality)",
+                    "Platform(Logistics)",
+                    "Platform(App & System)",
+                    "Pricing",
+                    "Unclassified",
+                  ]
