@@ -3,6 +3,6 @@ with source as (
 )
 
 SELECT DISTINCT
-    cityHash64(category) as category_id,
+    cityHash64(toString(category)) as category_id,
     category
 FROM source
