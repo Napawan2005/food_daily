@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: fct_orders
+    description: "Fact table, grain = 1 order"
+    columns:
+      - name: order_id
+        tests:
+          - unique
+          - not_null
+
+      - name: customer_id
+        tests:
+          - not_null
+
+      - name: restaurant_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_restaurant')
+                field: restaurant_id
+
+      - name: order_status_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_order_status')
+                field: order_status_id
+
+      - name: mode_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_payment_mode')
+                field: mode_id
+
+      - name: category_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_category')
+                field: category_id
+
+      - name: ratings
+        description: "Customer rating given for this order, 1-5 scale. Null when the customer did not rate."
+
+      - name: feedback
+        description: "Raw customer feedback text, source of category_id"
