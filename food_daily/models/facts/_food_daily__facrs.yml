@@ -5,16 +5,16 @@ models:
     description: "Fact table, grain = 1 order"
     columns:
       - name: order_id
-        tests:
+        data_tests:
           - unique
           - not_null
 
       - name: customer_id
-        tests:
+        data_tests:
           - not_null
 
       - name: restaurant_id
-        tests:
+        data_tests:
           - not_null
           - relationships:
               arguments:
@@ -22,7 +22,7 @@ models:
                 field: restaurant_id
 
       - name: order_status_id
-        tests:
+        data_tests:
           - not_null
           - relationships:
               arguments:
@@ -30,7 +30,7 @@ models:
                 field: order_status_id
 
       - name: mode_id
-        tests:
+        data_tests:
           - not_null
           - relationships:
               arguments:
@@ -38,7 +38,7 @@ models:
                 field: mode_id
 
       - name: category_id
-        tests:
+        data_tests:
           - not_null
           - relationships:
               arguments:
@@ -50,3 +50,15 @@ models:
 
       - name: feedback
         description: "Raw customer feedback text, source of category_id"
+
+      - name: feedback_sentiment
+        description: >
+          Negative / Positive. Deliberately separate from category_id:
+          category_id says what the feedback is about, this column says whether
+          it is good or bad. Any pain-point count must filter on this column —
+          never count from category_id alone.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Negative", "Positive"]
