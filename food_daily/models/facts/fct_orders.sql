@@ -31,7 +31,8 @@ SELECT
     s.order_time,
     s.amount,
     s.ratings,
-    s.feedback
+    s.feedback,
+    s.feedback_sentiment
 FROM source AS s
 LEFT JOIN restaurants AS r  ON s.restaurant   = r.restaurant_name
 LEFT JOIN statuses    AS su ON s.order_status = su.order_status
