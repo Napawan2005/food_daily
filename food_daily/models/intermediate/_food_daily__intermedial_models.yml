@@ -2,13 +2,34 @@ version: 2
 
 models:
   - name: int_feedback_category
-    description: "Order enriched with feedback category classification"
+    description: >
+      Order enriched with feedback classification.
+      `feedback` is a closed set of 17 values in this source, so both columns
+      are exact-match lookups rather than keyword search.
     columns:
       - name: order_id
         data_tests: [unique, not_null]
+
       - name: category
+        description: "Feedback topic, i.e. the team that owns it. Says nothing about good or bad."
+        data_tests:
+          - not_null
+          # 'Unclassified' is intentionally left out: if a new feedback value
+          # arrives, this test fails immediately instead of silently dropping
+          # those orders out of the reports.
+          - accepted_values:
+              arguments:
+                values:
+                  - "Merchant (Food Quality)"
+                  - "Platform(Logistics)"
+                  - "Platform(App & System)"
+                  - "Pricing"
+                  - "Overall"
+
+      - name: feedback_sentiment
+        description: "Whether the feedback is positive or negative. Deliberately separate from category."
         data_tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ["Merchant (Food Quality)", "Platform(Logistics)", "Platform(App & System)", "Pricing", "Unclassified"]
+                values: ["Negative", "Positive"]
