@@ -17,7 +17,7 @@ SELECT
     count(*) as count_order_category,
     countIf(s.order_id , s.feedback_sentiment = 'Negative') as count_negative,
     countIf(s.ratings <= 2 ) as count_ratings_loss,
-    countIf(s.order_id , s.s.feedback_sentiment = 'Negative' AND  s.ratings <= 2) as count_negative_ratings_loss,
+    countIf(s.order_id , s.feedback_sentiment = 'Negative' AND  s.ratings <= 2) as count_negative_ratings_loss,
 
     sum(s.amount) as gmv,
     sumIf(s.amount , s.ratings <= 2) as gmv_loss_ratings,
