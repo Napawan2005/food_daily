@@ -1,0 +1,138 @@
+version: 2
+
+models:
+  - name: mact_order_status_breakdown
+    description: "Order volume, negative feedback, low ratings and GMV per order status"
+    columns:
+      - name: order_status
+        data_tests:
+          - unique
+          - not_null
+
+      - name: orders
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1 
+
+      - name: count_negative
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: count_ratings_loss
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: pct_orders
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+      - name: pct_negative_in_status
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+      - name: pct_ratings_loss_in_status
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+      - name: gmv
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+  - name: mact_feedback_rating_paradox
+    description: "Per category: low-rated vs negative-sentiment orders, to spot mismatch between rating and feedback"
+    columns:
+      - name: category
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_category')
+                field: category
+
+      - name: total_orders
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+
+      - name: pct_of_all_orders
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+      - name: avg_ratings
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 5
+
+      - name: gmv
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+  - name: mact_feedback_customer_issue
+    description: "Platform-related issue categories ranked within each order status by low-rated count"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - order_status
+              - category
+    columns:
+      - name: order_status
+        data_tests:
+          - not_null
+
+      - name: category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - "Platform(App & System)"
+                  - "Platform(Logistics)"
+                  - "Overall"
+                  - "Unclassified"
+
+      - name: count_order_category
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+
+      - name: rank_loss
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
