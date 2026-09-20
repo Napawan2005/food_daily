@@ -1,12 +1,3 @@
--- `feedback` ในแหล่งข้อมูลนี้เป็นชุดปิด 17 ค่า ไม่ใช่ free text
--- จึง match ค่าเต็มแบบ exact แทน keyword search ที่จับคำชมเป็นปัญหา
--- (เช่น 'Delicious food' เคยเข้าหมวด Merchant (Food Quality))
---
--- แยก 2 มิติออกจากกันตามนิยามที่ตกลงกับ BU:
---   category           = ปัญหา/ความเห็น "เรื่องอะไร"  (ทีมไหนรับผิดชอบ)
---   feedback_sentiment = ความเห็นนั้น "ดีหรือแย่"
--- 'Coupon applied' ฟังดูเป็นบวก แต่ avg rating 2.07 จึงจัดเป็น Negative
-
 WITH source AS (
     SELECT * FROM {{ ref('stg_food_daily__order') }}
 )
