@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: mart_order_feedback_detail
+    description: "One row per order with rating, feedback text, sentiment and category name"
+    columns:
+      - name: order_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: ratings
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 5
+
+      - name: feedback_sentiment
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                    - "Positive"
+                    - "Negative"
+                    - "Unclassified"
+
+      - name: category
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_category')
+                field: category
