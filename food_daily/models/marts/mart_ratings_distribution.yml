@@ -4,18 +4,18 @@ models:
   - name: mart_ratings_distribution
     description: "Order count per rating value"
     columns:
-    - name: ratings 
-      data_tests:
-        - unique 
-        - not_null
-        - dbt_utils.accepted_range:
-          arguments:
-            min_value: 1
-            max_value: 5
-    
-    - name: order_ratings
-      data_tests:
-      - not_null
-      - dbt_utils.accepted_range:
-        arguments:
-          min_value: 1
+      - name: ratings
+        data_tests:
+          - unique
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 5
+
+      - name: order_ratings
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
