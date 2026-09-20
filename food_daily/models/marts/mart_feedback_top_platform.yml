@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: mart_feedback_top_platform_app
+    description: "Top 5 most frequent feedback texts per sentiment, within the Platform(App & System) category"
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - feedback_sentiment
+              - feedback
+
+    columns:
+      - name: feedback_sentiment
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - "Positive"
+                  - "Negative"
+                  - "Unclassified"
+
+      - name: feedback
+        data_tests:
+          - not_null
+
+      - name: order_count
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
