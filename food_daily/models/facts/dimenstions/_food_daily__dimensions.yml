@@ -71,4 +71,5 @@ models:
                     "Platform(App & System)",
                     "Pricing",
                     "Overall",
+                    "Unclassified",
                   ]

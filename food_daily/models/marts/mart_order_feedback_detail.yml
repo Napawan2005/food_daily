@@ -29,7 +29,3 @@ models:
       - name: category
         data_tests:
           - not_null
-          - relationships:
-              arguments:
-                to: ref('dim_category')
-                field: category

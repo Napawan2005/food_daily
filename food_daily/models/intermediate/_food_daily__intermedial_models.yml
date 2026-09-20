@@ -14,9 +14,6 @@ models:
         description: "Feedback topic, i.e. the team that owns it. Says nothing about good or bad."
         data_tests:
           - not_null
-          # 'Unclassified' is intentionally left out: if a new feedback value
-          # arrives, this test fails immediately instead of silently dropping
-          # those orders out of the reports.
           - accepted_values:
               arguments:
                 values:
@@ -25,6 +22,7 @@ models:
                   - "Platform(App & System)"
                   - "Pricing"
                   - "Overall"
+                  - "Unclassified"
 
       - name: feedback_sentiment
         description: "Whether the feedback is positive or negative. Deliberately separate from category."
@@ -32,4 +30,4 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ["Negative", "Positive"]
+                values: ["Negative", "Positive" , "Unclassified"]

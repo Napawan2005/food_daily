@@ -5,6 +5,6 @@ FROM (
 ) m,
 (
     select count(ratings) as fct_total
-    from {{ ref('fct_order')}}
+    from {{ ref('fct_orders')}}
 ) f
 where m.mart_total != f.fct_total
