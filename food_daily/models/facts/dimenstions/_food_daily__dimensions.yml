@@ -68,7 +68,7 @@ models:
                   [
                     "Merchant (Food Quality)",
                     "Platform(Logistics)",
-                    "Platform(App & System)",
+                    "App & System",
                     "Pricing",
                     "Overall",
                     "Unclassified",

@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: int_feedback_category
-    description: >
+    description: 
       Order enriched with feedback classification.
       `feedback` is a closed set of 17 values in this source, so both columns
       are exact-match lookups rather than keyword search.
@@ -19,7 +19,7 @@ models:
                 values:
                   - "Merchant (Food Quality)"
                   - "Platform(Logistics)"
-                  - "Platform(App & System)"
+                  - "App & System"
                   - "Pricing"
                   - "Overall"
                   - "Unclassified"
@@ -30,4 +30,4 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ["Negative", "Positive" , "Unclassified"]
+                values: ["Negative", "Positive", "Unclassified"]

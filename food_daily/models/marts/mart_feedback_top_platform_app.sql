@@ -10,11 +10,11 @@ category_app_and_system AS(
         *
     from source
     JOIN dim_category c using (category_id)
-    WHERE c.category = 'Platform(App & System)'
+    WHERE c.category = 'App & System'
 ),
 
 feedback_counts AS(
-    select 
+    select
         category,
         feedback_sentiment,
         feedback,

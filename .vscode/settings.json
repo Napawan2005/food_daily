@@ -1,0 +1,17 @@
+{
+    "sqltools.connections": [
+        {
+            "server": "http://localhost",
+            "port": 8123,
+            "database": "my_analytics_db",
+            "useJWT": false,
+            "requestTimeout": 30000,
+            "enableTls": false,
+            "previewLimit": 50,
+            "password": "wGam0AAVWcLFZSfYaSmhmw",
+            "username": "admin",
+            "driver": "ClickHouse",
+            "name": "local"
+        }
+    ]
+}

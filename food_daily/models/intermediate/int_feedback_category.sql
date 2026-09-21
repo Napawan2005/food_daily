@@ -11,7 +11,7 @@ SELECT
             'Platform(Logistics)',
         feedback IN ('Difficult to order', 'Complicated procedure', 'Coupon applied',
                      'Easy to order', 'Will order again'),
-            'Platform(App & System)',
+            'App & System',
         feedback IN ('High price', 'Cheap and best', 'Worth'),
             'Pricing',
         feedback IN ('Awesome experience', 'Good service', 'Nice'),
