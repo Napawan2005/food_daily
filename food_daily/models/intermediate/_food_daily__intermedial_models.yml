@@ -2,9 +2,9 @@ version: 2
 
 models:
   - name: int_feedback_category
-    description: 
+    description:
       Order enriched with feedback classification.
-      `feedback` is a closed set of 17 values in this source, so both columns
+      `feedback` is a closed set of 18 values in this source, so both columns
       are exact-match lookups rather than keyword search.
     columns:
       - name: order_id

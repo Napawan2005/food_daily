@@ -5,7 +5,7 @@ WITH source AS (
 SELECT
     *,
     multiIf(
-        feedback IN ('Stale food', 'Food not good'),
+        feedback IN ('Stale food', 'Food not good', 'Delicious food'),
             'Merchant (Food Quality)',
         feedback IN ('Late delivery', 'Delivery boy didnt come at doorstep', 'Fast delivery'),
             'Platform(Logistics)',
@@ -25,7 +25,7 @@ SELECT
             'Negative',
         feedback IN ('Fast delivery', 'Easy to order', 'Will order again',
                      'Cheap and best', 'Worth', 'Awesome experience',
-                     'Good service', 'Nice'),
+                     'Good service', 'Nice', 'Delicious food'),
             'Positive',
         'Unclassified'
     ) AS feedback_sentiment
