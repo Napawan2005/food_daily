@@ -49,7 +49,7 @@ EXPECTED_COLUMNS = [
 
 @dag(
     
-    dag_id="food_daily_pipeline",
+    dag_id="food_daily",
     schedule="@daily",
     start_date=datetime(2026, 8, 1),
     catchup=False,
