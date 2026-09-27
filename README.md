@@ -120,9 +120,22 @@ docker compose ps
 
 ## dbt
 
+`food_daily/profiles.yml` อ่านค่าทั้งหมดจาก env (`CLICKHOUSE_HOST` ไม่ตั้ง = `localhost`) ไม่มี password ในไฟล์
+
+**ผ่าน container Airflow** (มี dbt-clickhouse และ env ครบแล้ว, mount ที่ `/opt/airflow/dbt`, host = `clickhouse_db`)
+
 ```sh
-# ผ่าน container Airflow (มี dbt-clickhouse ติดตั้งแล้ว, mount ที่ /opt/airflow/dbt)
-docker compose exec airflow_scheduler bash -c "cd /opt/airflow/dbt && dbt deps && dbt run && dbt test"
+docker compose exec airflow_scheduler bash -c "cd /opt/airflow/dbt && dbt deps && dbt run --profiles-dir . && dbt test --profiles-dir ."
+```
+
+**รันในเครื่อง** (ต่อ ClickHouse ที่ `localhost:8123` — ต้อง `docker compose up -d` ไว้)
+
+```sh
+cd food_daily
+set -a; source ../.env; set +a   # โหลด CLICKHOUSE_* เข้า shell
+uv run dbt deps
+uv run dbt run --profiles-dir .
+uv run dbt test --profiles-dir .
 ```
 
 > service `dbt` ใน `docker-compose.yml` mount `./dbt/food_daily` ซึ่งไม่มีอยู่ (โปรเจกต์ dbt จริงคือ `./food_daily`) — ใช้คำสั่งข้างบนแทน หรือแก้ path ใน compose
