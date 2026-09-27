@@ -69,8 +69,5 @@ conversion_type as (
     from normalize
 ),
 
-check_date as (
-    select distinct * from conversion_type
-)
+select distinct * from conversion_type
 
-SELECT * from check_date
