@@ -16,9 +16,7 @@ x-airflow-common:
     AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
 
     AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow_webserver:8080/execution/'
-    MINIO_ENDPOINT: ${MINIO_ENDPOINT}
-    MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-    MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    AIRFLOW_CONN_MINIO_S3:  '{"conn_type": "aws", "login": "${MINIO_ROOT_USER}", "password": "${MINIO_ROOT_PASSWORD}", "extra": {"endpoint_url": "http://miniO:9000"}}'
     CLICKHOUSE_HOST: clickhouse_db
     CLICKHOUSE_PORT: 8123
     CLICKHOUSE_USER: ${CLICKHOUSE_USER}

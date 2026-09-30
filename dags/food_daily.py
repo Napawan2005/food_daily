@@ -7,11 +7,11 @@ import pandas as pd
 
 from dotenv import load_dotenv
 from airflow.sdk import dag, task
-from minio_client import get_minio_client, list_minio_buckets
-
+from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 import clickhouse_connect
 
 load_dotenv()
+MINIO_CONN_ID = "minio_s3"
 MINIO_ENDPOINT =  os.getenv("MINIO_ENDPOINT", "http://miniO:9000")
 MINIO_ACCESS_KEY =  os.getenv("MINIO_ACCESS_KEY")
 MINIO_SECRET_KEY =  os.getenv("MINIO_SECRET_KEY")
@@ -33,12 +33,8 @@ ch_client = clickhouse_connect.get_client(
             database=CLICKHOUSE_DB,
         )
 
-client = get_minio_client(
-    os.getenv("MINIO_ENDPOINT"),
-    os.getenv("MINIO_ACCESS_KEY"),
-    os.getenv("MINIO_SECRET_KEY"),
-)
-buckets = list_minio_buckets(client)
+def s3():
+    return S3Hook(aws_conn_id=MINIO_CONN_ID).get_conn()
 
 
 EXPECTED_COLUMNS = [
@@ -58,34 +54,7 @@ EXPECTED_COLUMNS = [
 )
 def food_daily():
     
-    @task
-    def check_minio_connection() -> bool:
-        try:
-            client = get_minio_client(
-                os.getenv("MINIO_ENDPOINT"),
-                os.getenv("MINIO_ACCESS_KEY"),
-                os.getenv("MINIO_SECRET_KEY"),
-            )
-            buckets = list_minio_buckets(client)
-        except Exception as e:
-            print(f"Cannot connect to MinIO: {e}")
-            return False
-
-        print(f"connection ok, buckets: {buckets}")
-        return True
     
-    @task
-    def ensure_bucket_exists( )-> None:
-        existing = list_minio_buckets(client)
-        if RAW_BUCKET not in existing:
-            client.create_bucket(Bucket=RAW_BUCKET)
-            print("create BUCKET {RAW_BUCKET} !!")
-        if PARQUET_BUCKET not in existing:
-            client.create_bucket(Bucket=PARQUET_BUCKET)
-            print("create BUCKET {RAW_BUCKET}  !!")
-        
-        print("you have bucket !!")
-
     @task
     def extract_validate_csv() -> str:
         df = pd.read_csv(SOURCE_CSV , encoding = "utf-8-sig")
@@ -99,7 +68,7 @@ def food_daily():
     def upload_raw_to_minio( csv_path: str) -> str:
         ds = datetime.today().strftime("%Y-%m-%d")
         key = f"{ds}/food_daily.csv"
-        client.upload_file(csv_path, RAW_BUCKET, key)
+        s3().upload_file(csv_path, RAW_BUCKET, key)
         return key
     
     
@@ -109,7 +78,7 @@ def food_daily():
         run_uid = uuid.uuid4().hex
 
         local_raw = f"/tmp/food_daily_raw_{ds}_{run_uid}.csv"
-        client.download_file(RAW_BUCKET, raw_key, local_raw)
+        s3().download_file(RAW_BUCKET, raw_key, local_raw)
 
         df = pd.read_csv(local_raw, encoding="utf-8-sig")
 
@@ -117,7 +86,7 @@ def food_daily():
         key = f"{ds}/food_daily.parquet"
         df.to_parquet(local_part , index=False)
         try:
-            client.upload_file(local_part, PARQUET_BUCKET , key)
+            s3().upload_file(local_part, PARQUET_BUCKET , key)
         except Exception as e:
             raise RuntimeError(f"Upload parquet to MinIO failed: {key}") from e
         finally:
@@ -172,26 +141,24 @@ def food_daily():
     @task
     def load_data_to_food_daily(parquet_key: str) -> int:
         s3_url = f"http://miniO:9000/{PARQUET_BUCKET}/{parquet_key}"
+        creds = S3Hook(aws_conn_id=MINIO_CONN_ID).get_credentials()
         try:
             ch_client.command(f"""
                 INSERT INTO food_daily
                 (Customer_id, date, time, order_id, items, amount, mode, restaurnt, Status, ratings, feedback)
                 SELECT Customer_id, date , time, order_id, [items], amount, mode, restaurnt, Status, ratings, feedback
-                FROM s3('{s3_url}' , '{MINIO_ACCESS_KEY}' , '{MINIO_SECRET_KEY}' , 'Parquet')
+                 FROM s3('{s3_url}', '{creds.access_key}', '{creds.secret_key}', 'Parquet')
              """)
         except Exception as e:
             raise RuntimeError(f"Failed to load parquet '{parquet_key}' into ClickHouse: {e}") from e
         return ch_client.command("SELECT count() FROM food_daily")
         
     
-    connect_miniO = check_minio_connection()
     csv_path = extract_validate_csv()
-    bucket_ready = ensure_bucket_exists()
     key_miniO_load_csv = upload_raw_to_minio(csv_path)
     key_miniO_load_parquet = convert_csv_to_parquet(key_miniO_load_csv)
 
-    connect_miniO >> bucket_ready
-    [csv_path, bucket_ready] >> key_miniO_load_csv >> key_miniO_load_parquet >> check_connection_clickhouse() >> create_food_daily_table() >> load_data_to_food_daily(key_miniO_load_parquet)
+    csv_path >> key_miniO_load_csv >> key_miniO_load_parquet >> check_connection_clickhouse() >> create_food_daily_table() >> load_data_to_food_daily(key_miniO_load_parquet)
     
     
 food_daily()
