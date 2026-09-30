@@ -1,0 +1,7 @@
+apache-airflow-providers-amazon==9.31.0
+clickhouse-connect==1.8.0
+pandas==2.3.3
+pyarrow==24.0.0
+python-dotenv==1.2.2
+dbt-core==1.12.5
+dbt-clickhouse==1.10.3

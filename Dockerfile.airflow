@@ -1,2 +1,4 @@
+
 FROM apache/airflow:3.3.0-python3.13
-RUN pip install --no-cache-dir apache-airflow-providers-amazon clickhouse-connect pandas pyarrow dbt-clickhouse
+COPY requirements.txt /requirements.txt
+RUN pip install --no-cache-dir "apache-airflow==3.3.0" -r /requirements.txt
