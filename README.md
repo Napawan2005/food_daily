@@ -18,7 +18,7 @@ Dataset: [food_daily.csv](https://github.com/janaom/gcp-data-engineering-etl-wit
 
 **ผลลัพธ์ที่ส่งให้ CEO:** หมวดที่ควรลงทุนก่อน 1 หมวด พร้อมรายการปัญหา top-N ที่ลูกค้าพูดถึงมากที่สุด และคาดว่าถ้าแก้แล้ว rating จะขยับจากกลุ่มไหน
 
-![Dashboard: feedback by category](docs/dashboard.png)
+![Dashboard: feedback by category](dashboard.png)
 
 link : [dashboard.png](https://datastudio.google.com/s/o7FIRzjEYng)
 
@@ -122,23 +122,64 @@ docker compose ps
 
 `food_daily/profiles.yml` อ่านค่าทั้งหมดจาก env (`CLICKHOUSE_HOST` ไม่ตั้ง = `localhost`) ไม่มี password ในไฟล์
 
-**ผ่าน container Airflow** (มี dbt-clickhouse และ env ครบแล้ว, mount ที่ `/opt/airflow/dbt`, host = `clickhouse_db`)
+__ผ่าน container Airflow__ (มี dbt-clickhouse และ env ครบแล้ว, mount ที่ `/opt/airflow/dbt`, host = `clickhouse_db`)
 
 ```sh
-docker compose exec airflow_scheduler bash -c "cd /opt/airflow/dbt && dbt deps && dbt run --profiles-dir . && dbt test --profiles-dir ."
+docker compose exec airflow_scheduler bash -c "cd /opt/airflow/dbt && dbt deps --profiles-dir . && dbt build --profiles-dir ."
 ```
 
 **รันในเครื่อง** (ต่อ ClickHouse ที่ `localhost:8123` — ต้อง `docker compose up -d` ไว้)
 
+ครั้งแรก: ติดตั้ง dbt ให้ตรงกับใน container (`.venv` ต้องเป็น dbt-core ไม่ใช่ dbt-fusion)
+
+```sh
+uv pip install dbt-core==1.12.5 dbt-clickhouse==1.10.3
+```
+
+ทุกครั้งที่เปิด terminal ใหม่
+
 ```sh
 cd food_daily
-set -a; source ../.env; set +a   # โหลด CLICKHOUSE_* เข้า shell
-uv run dbt deps
-uv run dbt run --profiles-dir .
-uv run dbt test --profiles-dir .
+set -a; source ../.env; set +a      # โหลด CLICKHOUSE_* เข้า shell (ต้องทำใหม่ทุก terminal)
+dbt deps --profiles-dir .           # ครั้งแรก หรือเมื่อแก้ packages.yml
+dbt build --profiles-dir .          # run + test ทุก model ตามลำดับ lineage
+```
+
+`dbt build` = `dbt run` + `dbt test` ในคำสั่งเดียว — ถ้า test ของ model ไหน fail, model ที่อยู่ถัดไปจะถูก skip ไม่สร้างทับด้วยข้อมูลเสีย
+
+**ดูข้อมูลใน table** (ใน terminal เดิมที่โหลด env แล้ว)
+
+```sh
+dbt show --select mart_ratings_distribution --profiles-dir .            # 5 แถวแรก
+dbt show --select fct_orders --limit 20 --profiles-dir .                 # กำหนดจำนวนแถว
+dbt show --inline "select category, count() from {{ ref('fct_orders') }} f join {{ ref('dim_category') }} using (category_id) group by category" --profiles-dir .
+dbt ls --resource-type model --profiles-dir .                            # รายชื่อ model ทั้งหมด
 ```
 
 > service `dbt` ใน `docker-compose.yml` mount `./dbt/food_daily` ซึ่งไม่มีอยู่ (โปรเจกต์ dbt จริงคือ `./food_daily`) — ใช้คำสั่งข้างบนแทน หรือแก้ path ใน compose
+
+### Layers
+
+```ini
+source food_daily (raw table จาก Airflow)
+   ▼
+stg_food_daily__order              staging
+   ▼
+int_feedback_category              intermediate
+   ▼
+dim_* ──► fct_orders               facts / dims
+   ▼
+mart_*                             marts
+```
+
+| layer | หน้าที่ | ทำอะไรใน project นี้ | ห้ามทำ |
+|---|---|---|---|
+| __staging__ | ทำความสะอาดข้อมูลดิบ 1:1 กับ source | rename column (`restaurnt` → `restaurant`), trim, แปลง type (date, time, Enum), clamp `ratings` 1–5, สร้าง `order_id`, ตัดแถวซ้ำ | join, business logic |
+| __intermediate__ | ใส่ business logic ที่ใช้ซ้ำหลาย model | จัด `feedback` เป็น `category` (Merchant / Platform / App / Pricing / Overall) และ `feedback_sentiment` (Positive / Negative) | aggregate เพื่อ report |
+| __facts / dims__ | จัดรูปเป็น star schema: fact = เหตุการณ์ (1 แถว = 1 order), dim = คุณสมบัติที่ใช้ filter / group | `fct_orders` เก็บ order + surrogate key (`cityHash64`) ชี้ไป `dim_category`, `dim_order_status`, `dim_payment_mode`, `dim_restaurant` | logic ที่ไม่เกี่ยวกับโครงสร้าง |
+| __marts__ | ตอบคำถาม business 1 ข้อต่อ 1 model พร้อมให้ dashboard ใช้ | `mart_ratings_distribution`, `mart_feedback_top_platform_app`, `mart_order_feedback_detail` | ทำความสะอาดข้อมูล (ต้องจบตั้งแต่ staging) |
+
+กฎการอ้างอิง: แต่ละ layer `ref()` ได้เฉพาะ layer ที่อยู่ก่อนหน้า — mart ไม่อ่าน staging ตรง ๆ, staging ไม่อ่าน model อื่นนอกจาก `source()`
 
 ## Stop / reset
 
