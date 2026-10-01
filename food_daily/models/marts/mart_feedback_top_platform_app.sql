@@ -2,15 +2,11 @@ WITH source AS(
     SELECT * FROM {{ref('fct_orders')}}
 ),
 
-dim_category as(
-    select * from {{ref('dim_category')}}
-),
 category_app_and_system AS(
     select
         *
     from source
-    JOIN dim_category c using (category_id)
-    WHERE c.category = 'App & System'
+    WHERE category = 'App & System'
 ),
 
 feedback_counts AS(

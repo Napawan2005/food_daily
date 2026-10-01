@@ -1,0 +1,67 @@
+version: 2
+
+models:
+  - name: fct_orders
+    description: "Fact table, grain = 1 order"
+    columns:
+      - name: order_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: customer_id
+        data_tests:
+          - not_null
+
+      - name: restaurant
+        description: "Restaurant name as it appears in the source"
+        data_tests:
+          - not_null
+
+      - name: order_status
+        description: "Delivery outcome of the order"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Delivered", "Not delivered", "On Hold", "Cancelled"]
+
+      - name: mode
+        description: "Payment method the customer used for the order"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Wallet", "Card", "Online", "Cash"]
+
+      - name: category
+        description: "Feedback topic derived in int_feedback_category"
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - "Merchant (Food Quality)"
+                  - "Platform(Logistics)"
+                  - "App & System"
+                  - "Pricing"
+                  - "Overall"
+                  - "Unclassified"
+
+      - name: ratings
+        description: "Customer rating given for this order, 1-5 scale. Null when the customer did not rate."
+
+      - name: feedback
+        description: "Raw customer feedback text, source of category"
+
+      - name: feedback_sentiment
+        description: >
+          Negative / Positive. Deliberately separate from category:
+          category says what the feedback is about, this column says whether
+          it is good or bad. Any pain-point count must filter on this column —
+          never count from category alone.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Negative", "Positive", "Unclassified"]
