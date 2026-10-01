@@ -46,7 +46,7 @@ MinIO  parquet-food-daily/<date>/food_daily.parquet
 ClickHouse  food_daily (raw table)
    │  dbt run + dbt test   (รันแยกผ่าน service `dbt` หรือ manual)
    ▼
-ClickHouse  staging → intermediate → facts/dims → marts
+ClickHouse  staging → intermediate → facts → marts
 ```
 
 ทั้งหมดอยู่ใน DAG เดียว `food_daily_pipeline` (`dags/food_daily.py`, `@daily`) — dbt ไม่ได้อยู่ใน DAG
@@ -75,7 +75,6 @@ food_daily/
     │   ├── staging/                # stg_food_daily__order + sources.yml
     │   ├── intermediate/           # int_feedback_category (+ csv mapping)
     │   ├── facts/                  # fct_orders
-    │   │   └── dimenstions/        # dim_category, dim_order_status, dim_payment_mode, dim_restaurant
     │   └── marts/                  # mart_order_feedback_detail, mart_ratings_distribution, mart_feedback_top_platform_app
     └── tests/                      # singular tests (assert_*.sql)
 ```
@@ -152,7 +151,7 @@ dbt build --profiles-dir .          # run + test ทุก model ตามลำ
 ```sh
 dbt show --select mart_ratings_distribution --profiles-dir .            # 5 แถวแรก
 dbt show --select fct_orders --limit 20 --profiles-dir .                 # กำหนดจำนวนแถว
-dbt show --inline "select category, count() from {{ ref('fct_orders') }} f join {{ ref('dim_category') }} using (category_id) group by category" --profiles-dir .
+dbt show --inline "select category, count() from {{ ref('fct_orders') }} group by category" --profiles-dir .
 dbt ls --resource-type model --profiles-dir .                            # รายชื่อ model ทั้งหมด
 ```
 
@@ -167,7 +166,7 @@ stg_food_daily__order              staging
    ▼
 int_feedback_category              intermediate
    ▼
-dim_* ──► fct_orders               facts / dims
+fct_orders                         facts
    ▼
 mart_*                             marts
 ```
@@ -176,10 +175,53 @@ mart_*                             marts
 |---|---|---|---|
 | __staging__ | ทำความสะอาดข้อมูลดิบ 1:1 กับ source | rename column (`restaurnt` → `restaurant`), trim, แปลง type (date, time, Enum), clamp `ratings` 1–5, สร้าง `order_id`, ตัดแถวซ้ำ | join, business logic |
 | __intermediate__ | ใส่ business logic ที่ใช้ซ้ำหลาย model | จัด `feedback` เป็น `category` (Merchant / Platform / App / Pricing / Overall) และ `feedback_sentiment` (Positive / Negative) | aggregate เพื่อ report |
-| __facts / dims__ | จัดรูปเป็น star schema: fact = เหตุการณ์ (1 แถว = 1 order), dim = คุณสมบัติที่ใช้ filter / group | `fct_orders` เก็บ order + surrogate key (`cityHash64`) ชี้ไป `dim_category`, `dim_order_status`, `dim_payment_mode`, `dim_restaurant` | logic ที่ไม่เกี่ยวกับโครงสร้าง |
+| __facts__ | ตารางกลางที่ mart ทุกตัวอ่าน grain ชัดเจน (1 แถว = 1 order) | `fct_orders` เลือกเฉพาะ column ที่ใช้ต่อ เก็บ `restaurant`, `order_status`, `mode`, `category` เป็นค่าจริงในตารางเดียว (wide table) | business logic ใหม่, aggregate |
 | __marts__ | ตอบคำถาม business 1 ข้อต่อ 1 model พร้อมให้ dashboard ใช้ | `mart_ratings_distribution`, `mart_feedback_top_platform_app`, `mart_order_feedback_detail` | ทำความสะอาดข้อมูล (ต้องจบตั้งแต่ staging) |
 
 กฎการอ้างอิง: แต่ละ layer `ref()` ได้เฉพาะ layer ที่อยู่ก่อนหน้า — mart ไม่อ่าน staging ตรง ๆ, staging ไม่อ่าน model อื่นนอกจาก `source()`
+
+#### staging — `models/staging/`
+
+- __input:__ `source('food_daily', 'food_daily')` (raw table ที่ Airflow โหลดเข้า ClickHouse)
+- __output:__ `stg_food_daily__order` — 1 แถว = 1 order, ชื่อ column / type / ค่า สะอาดพร้อมใช้
+- __materialized:__ `view` (ไม่เก็บข้อมูลซ้ำ แค่ห่อ raw table)
+- __หน้าที่:__ แก้ปัญหาของ "ข้อมูลดิบ" ให้จบที่นี่ที่เดียว — ชื่อ column ผิด (`restaurnt`), ช่องว่าง, ตัวพิมพ์ไม่เหมือนกัน (`delivered` / `Delivered`), format วันที่/เวลาหลายแบบ, ค่า rating เกินช่วง, แถวซ้ำ
+- __test:__ `unique` / `not_null` ของ key, `accepted_values` ของค่าที่ normalize แล้ว
+
+#### intermediate — `models/intermediate/`
+
+- __input:__ staging
+- __output:__ `int_feedback_category` — order เดิม + column ที่คำนวณจาก business rule (`category`, `feedback_sentiment`)
+- __materialized:__ `view`
+- __หน้าที่:__ เก็บ "กฎของธุรกิจ" ไว้ที่เดียว ถ้าวันหนึ่งเปลี่ยนว่า feedback ไหนอยู่หมวดไหน แก้ไฟล์นี้ไฟล์เดียว ทุก mart ได้ค่าใหม่
+- __test:__ `accepted_values` ของ column ที่ derive ขึ้นมา — ถ้ามี feedback ใหม่ที่ map ไม่เข้า จะตกเป็น `Unclassified` ให้เห็น
+
+#### facts — `models/facts/`
+
+- __input:__ intermediate
+- __output:__ `fct_orders` — grain 1 แถว = 1 order, เลือกเฉพาะ column ที่ mart ใช้
+- __materialized:__ `table` (mart ทุกตัวอ่านจากที่นี่ เก็บเป็น table จะได้ไม่ต้องคำนวณ staging/intermediate ซ้ำทุกครั้ง)
+- __หน้าที่:__ เป็น "แหล่งความจริงกลาง" ที่ mart ทุกตัวอ่าน — กำหนด grain และ contract ของ column ให้ชัด ไม่เพิ่ม logic ใหม่
+- __test:__ `unique` ของ `order_id` (ยืนยัน grain), `not_null` / `accepted_values` ของ column ที่ mart ใช้ filter / group
+
+#### marts — `models/marts/`
+
+- __input:__ facts
+- __output:__ ตารางที่ตอบคำถาม business 1 ข้อ เช่น `mart_ratings_distribution` (order ต่อ rating), `mart_feedback_top_platform_app` (top 5 feedback ในหมวด App & System), `mart_order_feedback_detail` (drill-down ราย order)
+- __materialized:__ `view`
+- __หน้าที่:__ aggregate / filter / rank ให้อยู่ในรูปที่ dashboard ใช้ได้ทันที
+- __test:__ grain ของผลลัพธ์ (`unique_combination_of_columns`), ช่วงค่าที่สมเหตุสมผล (`accepted_range`)
+
+#### logic ใหม่ควรอยู่ layer ไหน
+
+| ถ้าจะ… | ใส่ที่ |
+|---|---|
+| แก้ชื่อ column, trim, แปลง type, ลบแถวซ้ำ | staging |
+| เพิ่มกฎที่ใช้ได้หลาย report (เช่น จัดกลุ่ม, ติด flag) | intermediate |
+| เพิ่ม column ที่ mart ต้องใช้ | facts (ดึงจาก intermediate) |
+| ตอบคำถามใหม่ / ทำกราฟใหม่ | mart ใหม่ 1 model |
+
+**ทำไมไม่มี dim tables:** dimension ที่มีแค่ `id` + ชื่อ (เช่น `cityHash64(restaurant)`, `restaurant`) ไม่ได้เพิ่มข้อมูลอะไร กลับต้อง join ไป-กลับทุก mart ส่วน `order_status` / `mode` เป็น `Enum8` ตั้งแต่ staging ซึ่งเป็น lookup อยู่แล้ว และ ClickHouse เป็น columnar DB ที่เหมาะกับ wide table — จะสร้าง dim ก็ต่อเมื่อมี attribute เพิ่ม เช่น master data ของร้าน (เมือง, ประเภทอาหาร)
 
 ## Stop / reset
 
@@ -196,7 +238,7 @@ docker compose down -v       # หยุด + ลบข้อมูลทั้�
 - เรียนรู้การใช้ Airflow แบบ DAG เดียว และการแยกออกเป็นหลาย DAG แล้วต่อกันด้วย Asset
 - เข้าใจว่า data pipeline ที่ดีควรมี flow แบบไหน (ingest → raw → parquet → warehouse → dbt)
 - เรียนรู้ flow การอัปโหลดข้อมูลขึ้น MinIO และการโหลดข้อมูลเข้า ClickHouse
-- เรียนรู้วิธีคิดในการแบ่ง layer ของ dbt (staging → intermediate → facts/dims → marts) ว่าแต่ละชั้นควรทำหน้าที่อะไร
+- เรียนรู้วิธีคิดในการแบ่ง layer ของ dbt (staging → intermediate → facts → marts) ว่าแต่ละชั้นควรทำหน้าที่อะไร
 
 ### How would you improve it?
 
