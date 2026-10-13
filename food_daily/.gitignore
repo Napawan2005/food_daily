@@ -4,5 +4,5 @@ dbt_packages/
 logs/
 .env
 dbt_internal_packages/
-.vscode
-airflow_config
+.vscode/settings.json
+airflow_config/simple_auth_manager_passwords.json.generated
