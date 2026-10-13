@@ -60,8 +60,6 @@ food_daily/
 ├── .env.example                    # template → copy เป็น .env
 ├── dataset/
 │   └── food_daily.csv              # CSV ต้นทาง
-├── airflow_config/
-│   └── simple_auth_manager_passwords.json.generated   # password ที่ Airflow generate (gitignore)
 ├── TROUBLESHOOTING.md              # ปัญหาที่เจอบ่อย + วิธีแก้
 ├── dags/                           # Airflow
 │   ├── food_daily.py               # DAG food_daily_pipeline: CSV → MinIO raw → parquet → ClickHouse (@daily)
@@ -101,14 +99,14 @@ docker compose ps
 
 | service | URL | user / password |
 |---|---|---|
-| Airflow UI | http://localhost:8080 | `AIRFLOW_ADMIN_USER` / ดูใน `airflow_config/simple_auth_manager_passwords.json.generated` |
+| Airflow UI | http://localhost:8080 | `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD` |
 | MinIO console | http://localhost:9002 | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` |
 | ClickHouse HTTP | http://localhost:8123 | `CLICKHOUSE_USER` / `CLICKHOUSE_PASSWORD` |
 | dbt | — | ใช้ค่า ClickHouse เดียวกัน (อ่านจาก env ผ่าน `profiles.yml`) |
 
 หมายเหตุ
 
-- Airflow (SimpleAuthManager) __generate password เอง__ ทุกครั้งที่สร้าง container ใหม่ — `AIRFLOW_ADMIN_PASSWORD` ใน `.env` ไม่ได้ถูกใช้ ดูค่าจริงด้วย `cat airflow_config/simple_auth_manager_passwords.json.generated`
+- Airflow (SimpleAuthManager): `airflow_webserver` เขียน `AIRFLOW_ADMIN_USER`/`AIRFLOW_ADMIN_PASSWORD` ลงไฟล์ password ตอน start — เปลี่ยน password แค่แก้ `.env` แล้ว `docker compose up -d airflow_webserver` (ไม่ต้อง `down -v`)
 - ClickHouse password ถูกตั้งตอนสร้าง volume ครั้งแรกเท่านั้น แก้ `.env` ทีหลังไม่มีผล ต้อง `docker compose down -v` (ข้อมูลหาย) แล้ว up ใหม่
 
 ## Run pipeline
