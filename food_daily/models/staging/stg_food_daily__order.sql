@@ -55,10 +55,10 @@ conversion_type as (
         customer_id,
         toDate(order_date) as order_date,
         order_time::Time as order_time,
-        upper(substring(hex(cityHash64(concat(
+        cityHash64(concat(
             customer_id, order_date, order_time, toString(amount),
             arrayStringConcat(items, ':'), restaurant, toString(mode), order_status , ratings , feedback
-        ))), 1, 5)) as order_id,
+        ))as order_id,
         items,
         mode::Enum8('Online' = 1 , 'Cash' = 2 , 'Wallet' = 3 ,'Card' = 4) as mode,
         restaurant,
