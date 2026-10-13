@@ -4,3 +4,5 @@ dbt_packages/
 logs/
 .env
 dbt_internal_packages/
+.vscode
+airflow_config
