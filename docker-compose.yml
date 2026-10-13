@@ -10,7 +10,6 @@ x-airflow-common:
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow_postgres/${AIRFLOW_DB_USER}
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__CORE__AUTH_MANAGER: 'airflow.api_fastapi.auth.managers.simple.simple_auth_manager.SimpleAuthManager'
-
     AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: '${AIRFLOW_ADMIN_USER}:admin'
 
     AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
@@ -27,7 +26,6 @@ x-airflow-common:
     - ./dataset:/opt/airflow/dataset
     - ./food_daily:/opt/airflow/dbt
     - airflow_logs:/opt/airflow/logs
-    - ./airflow_config/simple_auth_manager_passwords.json.generated:/opt/airflow/simple_auth_manager_passwords.json.generated
   depends_on:
     airflow_postgres:
       condition: service_healthy
@@ -115,7 +113,17 @@ services:
   airflow_webserver:
     <<: *airflow-common
     container_name: airflow-webserver
-    command: api-server
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+
+    command:
+      - bash
+      - -c
+      - |
+        python -c 'import json, os; json.dump({os.environ["AIRFLOW_ADMIN_USER"]: os.environ["AIRFLOW_ADMIN_PASSWORD"]}, open("/opt/airflow/simple_auth_manager_passwords.json.generated", "w"))'
+        exec airflow api-server
     ports:
       - "8080:8080"
     depends_on:
